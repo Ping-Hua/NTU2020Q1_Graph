@@ -1,0 +1,87 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Dec 21 00:21:11 2020
+
+"""
+
+
+import cv2
+import numpy as np
+import pandas as pd
+
+#shape is like[a,b] which stands for height,width
+#Filter[a:b,c:d] means: call out the (a to b row) of Filter (c to d column) of Filter
+#手輸Data(Banner大小, 基準rows, 基準Percentage)
+
+
+#Hue = 色相(red green blue), Saturation = 飽和度, Lightness = 亮度
+
+def historecognized(Hue,Saturation,Value):
+    HSV=cv2.cvtColor(Image,cv2.COLOR_BGR2HSV)
+    
+    LowerBound=np.array([Hue[0],Saturation[0],Value[0]])
+    UpperBound=np.array([Hue[1],Saturation[1],Value[1]])
+    mask=cv2.inRange(HSV,LowerBound,UpperBound)
+    
+    histo=cv2.bitwise_and(Image,Image,mask=mask)
+
+    histo=cv2.cvtColor(histo,cv2.COLOR_BGR2GRAY)
+    histo=np.piecewise(histo,[histo<=0,histo>0],[0,255]) # 0是黑色，255是白色，依條件assign值
+    histo = histo.astype('uint8')#以int的法是呈現
+    return (histo)
+
+def LockHisto(Histo):
+    Location=np.where(Histo == 255)#找出Image裡elements是255的位置
+    return(
+        Histo[
+            min(Location[0])-2:max(Location[0])+2,
+            min(Location[1])-2:max(Location[1])+2
+        ]
+    )
+
+
+def datafinding(Histo,basic_row,basic_percentage,finding_row): #input row number denoted by list
+	bottom_up_basic_row = Histo.shape[0] - basic_row
+	bottom_up_finding_row = Histo.shape[0] - finding_row
+	finding_percentage = basic_percentage * bottom_up_finding_row / bottom_up_basic_row
+	return(finding_percentage)
+
+
+Image = cv2.imread("histogram.png") #讀為ndarray
+Filter = historecognized([10,255],[10,255],[0,255])
+LockedHisto = LockHisto(Histo=Filter)
+
+
+Histo = LockedHisto
+rows,cols = Histo.shape
+
+def producedata(cols, rows, Histo, a, b):
+    firm_a_list = [a] # firm name enter in
+    firm_b_list = [b]
+    datalist =[]
+    right_point = []
+    for j in range(cols):
+    	for i in range(rows-1):
+    		if Histo[i+1][j] == 255 and Histo[i][j] == 0 and Histo[i+1][j+1] == 0:
+    			right_point.append([i+1,j])
+    
+    for i in range(len(right_point)):
+    	fp = datafinding(Histo = LockedHisto, basic_row = 4, basic_percentage = 0.5009, finding_row = right_point[i][0])
+    	datalist.append(fp)
+    
+    for i in range(len(datalist)):
+    	if i%2 == 0:
+    		firm_a_list.append(datalist[i])
+    	else:
+    		firm_b_list.append(datalist[i])
+    return firm_a_list, firm_b_list
+
+firm_a_list, firm_b_list = producedata(cols, rows, Histo, '台積電', '聯發科')
+
+print(firm_a_list) #聯發科的毛利率
+print(firm_b_list) #台積電的毛利率
+'''
+#Loacation決定中心點在哪，Shape決定Banner有多寬
+'''
+
